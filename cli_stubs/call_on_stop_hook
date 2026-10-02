@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# CLI stub for the "call_on_stop_hook" event (config.HOOK_CLI_CALLS), invoked by
+# hooks/handler_stop.py via hooks.hook_cli_calls.run_and_get_exit_code() on every
+# Stop event. Called as: call_on_stop_hook --hook
+#
+# Interface: this stub speaks Claude Code's own Stop hook decision protocol directly --
+# handler_stop.py relays its stdout and exit code VERBATIM (no reparsing) to Claude
+# Code, so print exactly what the harness expects:
+#   Block:   {"decision": "block", "reason": "<shown to the agent>"}      then exit 2
+#   Approve: {"decision": "approve", "systemMessage": "<shown to the user>"} then exit 0
+# Extra fields (e.g. a project's own "vars") pass through untouched, since the relay
+# never parses stdout. A missing/erroring/non-zero-without-a-payload stub degrades to
+# "allow the stop" -- see src/hook_cli_calls.py's run_and_get_exit_code(), which
+# fails soft on infrastructure trouble (missing binary, timeout) but propagates a real
+# exit code verbatim once the stub actually ran.
+#
+# This default stub logs the args it was invoked with to cli_stubs/cli_stubs.log, then
+# approves the stop with the message below. Replace it to gate session stops on real
+# state (e.g. unresolved work, pending review) -- e.g.:
+#   cat <<'JSON'
+#   {"decision": "block", "reason": "2 WorkNodes still in_progress -- resolve or fail them before stopping."}
+#   JSON
+#   exit 2
+log_file="$(dirname "$0")/cli_stubs.log"
+script_rel="$(basename "$(dirname "$0")")/$(basename "$0")"
+echo "$(date +'%Y-%m-%d %H:%M:%S,%3N') \`$script_rel $*\`" >> "$log_file"
+cat <<'JSON'
+{
+  "decision": "approve",
+  "systemMessage": "call_on_stop_hook stub allowed the stop (no project logic wired in yet -- edit cli_stubs/call_on_stop_hook)."
+}
+JSON
+exit 0

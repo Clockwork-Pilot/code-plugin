@@ -1,0 +1,14 @@
+{
+  "name": "clockwork-pilot-plugins",
+  "owner": {
+    "name": "Yaroslav Litvinov",
+    "email": "yaroslav.litvinov@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "clockwork-pilot",
+      "source": "./plugin",
+      "description": "A work execution system that persists local state in transactional document and navigates the orchestrator through work execution - capturing units, managing approvals, dispatching tasks to parallel multi-step pipelines, where review gates commits or returns work for bigger-model escalation, while tracking proof at every step, entirely local, no external data sharing."
+    }
+  ]
+}

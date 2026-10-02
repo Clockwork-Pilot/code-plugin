@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# CLI stub for the "subagent_sync_call_on_edit_write" event (config.HOOK_CLI_CALLS),
+# invoked by src/hook_cli_calls.py's stamp_agent_live() as a throttled (ledger-
+# backed) liveness heartbeat while a SUB-AGENT is actively editing/writing files
+# against a detected run. Called as:
+#   subagent_sync_call_on_edit_write <run_id> --fact agent_live
+#
+# This default stub logs the args it was invoked with to cli_stubs/cli_stubs.log,
+# then always exits 0 (the hook that called it fails soft on anything else, so a
+# missing/erroring stub never breaks the Edit/Write call it's observing). Replace
+# this script to record real liveness state.
+log_file="$(dirname "$0")/cli_stubs.log"
+script_rel="$(basename "$(dirname "$0")")/$(basename "$0")"
+echo "$(date +'%Y-%m-%d %H:%M:%S,%3N') \`$script_rel $*\`" >> "$log_file"
+exit 0

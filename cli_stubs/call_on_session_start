@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# CLI stub for the "call_on_session_start" event (config.HOOK_CLI_CALLS), invoked by
+# hooks/handler_session_start.py once per SessionStart event. Called as:
+#   call_on_session_start --hook
+#
+# Interface: stdout, if it parses as a JSON object, may carry either/both of:
+#   additional_context  (string) - appended to the SessionStart hookSpecificOutput's
+#                                   additionalContext (agent-facing, silent).
+#   system_message       (string) - appended to the SessionStart systemMessage
+#                                   (user-facing, rendered by Claude Code).
+# Both fields are optional; an empty object, non-JSON stdout, non-zero exit, or a
+# missing/erroring stub all degrade to "nothing to add" -- see
+# src/hook_cli_calls.py's invoke_and_get_payload(), which fails soft on every one of
+# those cases so a broken stub never breaks session start.
+#
+# This default stub logs the args it was invoked with to cli_stubs/cli_stubs.log, then
+# prints the payload below (both fields non-empty, so the default run genuinely
+# exercises the additional_context/system_message shape end to end) and exits 0.
+# Replace the printed JSON with real session-start state.
+log_file="$(dirname "$0")/cli_stubs.log"
+script_rel="$(basename "$(dirname "$0")")/$(basename "$0")"
+echo "$(date +'%Y-%m-%d %H:%M:%S,%3N') \`$script_rel $*\`" >> "$log_file"
+cat <<'JSON'
+{
+  "additional_context": "call_on_session_start stub is active (no project data wired in yet -- edit cli_stubs/call_on_session_start).",
+  "system_message": "call_on_session_start stub active."
+}
+JSON
+exit 0

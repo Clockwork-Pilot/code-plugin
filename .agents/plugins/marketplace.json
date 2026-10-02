@@ -1,0 +1,16 @@
+{
+  "name": "clockwork-pilot",
+  "plugins": [
+    {
+      "name": "clockwork-pilot",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

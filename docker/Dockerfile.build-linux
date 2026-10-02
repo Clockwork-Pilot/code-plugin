@@ -1,0 +1,52 @@
+# Old-enough glibc base so the Nuitka binary runs on distros newer than the
+# build host too (glibc is forward-compatible, never backward-compatible -- building
+# on a bleeding-edge base would produce a binary that refuses to run on, say, a
+# 2-year-old Ubuntu LTS). Bullseye is glibc 2.31, older than Ubuntu 22.04's 2.35.
+#
+# python:3.11 rather than the distro's own python3: bullseye ships 3.9, which cannot
+# evaluate the PEP 604 `str | None` annotations this codebase uses, so a binary built
+# against it dies on import at hook time.
+#
+# The base image below already carries the toolchain (build-essential/ccache/git/
+# patchelf) on top of this same bullseye base. It pins Debian to the snapshot matching
+# the official Python image so apt resolves versions that match its installed packages.
+ARG BUILD_BASE_IMAGE=ghcr.io/clockwork-pilot/code-plugin-build-base:1
+FROM --platform=linux/amd64 ${BUILD_BASE_IMAGE}
+
+WORKDIR /build
+COPY requirements.txt requirements-build.txt .
+RUN python3 -m venv /venv && /venv/bin/pip install --no-cache-dir -r requirements-build.txt
+
+COPY . .
+WORKDIR /build/plugin
+
+# Fail before compilation if the toolchain layer is incomplete. Nuitka otherwise
+# discovers missing patchelf or the C compiler only after spending time generating C.
+RUN set -eu; \
+      /venv/bin/python3 -c 'import nuitka'; \
+      command -v gcc >/dev/null; \
+      command -v patchelf >/dev/null
+
+# runpy dispatches handlers by name, so make every handler part of Nuitka's static
+# module graph. The plugin's JSON manifests and CLI binding stay as external files in
+# the installed plugin tree and are read at runtime from the plugin root.
+RUN /venv/bin/python3 -m nuitka \
+      --onefile \
+      --output-dir=/out/linux-x86_64 \
+      --output-filename=hookrunner \
+      --company-name=ClockworkPilot \
+      --product-name=hookrunner \
+      --static-libpython=no \
+      --include-package=hooks \
+      --include-package=src \
+      --include-module=hooks.handler_bash \
+      --include-module=hooks.handler_compaction \
+      --include-module=hooks.handler_edit \
+      --include-module=hooks.handler_post_change \
+      --include-module=hooks.handler_session_start \
+      --include-module=hooks.handler_stop \
+      --include-module=hooks.handler_subagent_start \
+      --include-module=hooks.handler_subagent_stop \
+      --include-module=hooks.handler_write \
+      --assume-yes-for-downloads \
+      hooks/__main__.py

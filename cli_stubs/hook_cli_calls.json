@@ -1,0 +1,22 @@
+{
+  "hook_cli_calls": {
+    "call_on_session_start":
+      { "cmd": ["{plugin_root}/cli_stubs/call_on_session_start", "--hook"] },
+
+    "call_on_stop_hook":
+      { "timeout": 120,
+        "cmd": ["{plugin_root}/cli_stubs/call_on_stop_hook", "--hook", "--last-file-change-at", "{last_file_change_at}"] },
+
+    "subagent_sync_call_on_bash":
+      { "cmd": ["{plugin_root}/cli_stubs/subagent_sync_call_on_bash", "{run_id}", "--fact", "agent_live"] },
+
+    "subagent_sync_call_on_edit_write":
+      { "cmd": ["{plugin_root}/cli_stubs/subagent_sync_call_on_edit_write", "{run_id}", "--fact", "agent_live"] },
+
+    "subagent_call_on_run_id_resolved":
+      { "cmd": ["{plugin_root}/cli_stubs/subagent_call_on_run_id_resolved", "{run_id}", "--fact", "dispatched", "--fact", "agent_id={agent_id}"] },
+
+    "subagent_call_on_run_finished":
+      { "cmd": ["{plugin_root}/cli_stubs/subagent_call_on_run_finished", "{run_id}", "--fact", "agent_finished"] }
+  }
+}

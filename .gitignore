@@ -1,0 +1,9 @@
+plugin/bin/
+bin/*/
+dist/*/
+.changes-tracker/
+*.pyc
+*.log
+*~
+__pycache__
+

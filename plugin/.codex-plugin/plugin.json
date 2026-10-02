@@ -1,0 +1,9 @@
+{
+  "name": "clockwork-pilot",
+  "version": "1.0.0",
+  "description": "A work execution system that navigates the orchestrator through execution - capturing units, managing approvals, dispatching tasks to parallel multi-step pipelines, where review gates commits or returns work for bigger-model escalation, while tracking proof at every step, persists state in transactional document in open format - entirely local, no external data sharing.",
+  "license": "MIT AND LicenseRef-Proprietary",
+  "keywords": [],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.codex.json"
+}

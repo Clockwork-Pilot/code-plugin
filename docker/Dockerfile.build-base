@@ -1,0 +1,22 @@
+# Keep the official Python image's bullseye package set intact. Its image metadata names
+# the 2025-07-21 Debian snapshot that matches the installed libraries; the live mirrors
+# now advertise packages whose pool files have been removed, while archive.debian.org
+# has an older main snapshot. The image deliberately keeps the glibc 2.31 floor rather
+# than bumping to bookworm (see docker/Dockerfile.build-linux for why that floor exists).
+FROM --platform=linux/amd64 python:3.11-slim-bullseye
+
+# Pin all suites to the same snapshot used by the official Python image. Snapshot Release
+# files are historical, so apt's Valid-Until check must be disabled for this fixed source.
+RUN printf '%s\n' \
+      'deb http://snapshot.debian.org/archive/debian/20250721T000000Z bullseye main' \
+      'deb http://snapshot.debian.org/archive/debian-security/20250721T000000Z bullseye-security main' \
+      'deb http://snapshot.debian.org/archive/debian/20250721T000000Z bullseye-updates main' \
+      > /etc/apt/sources.list \
+ && echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      ccache \
+      git \
+      patchelf \
+    && rm -rf /var/lib/apt/lists/*

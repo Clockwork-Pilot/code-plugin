@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_bash", "timeout": 600}]},
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_post_change"}]},
+      {"matcher": "Write", "hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_post_change"}]}
+    ],
+    "PostToolUseFailure": [
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_bash", "timeout": 600}]}
+    ],
+    "PreToolUse": [
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_edit"}]},
+      {"matcher": "Write", "hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_write"}]},
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_bash", "timeout": 600}]}
+    ],
+    "SessionStart": [{"matcher": "*", "hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_session_start"}]}],
+    "Compaction": [{"hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_compaction"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_stop"}]}],
+    "SubagentStart": [{"hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_subagent_start"}]}],
+    "SubagentStop": [{"hooks": [{"type": "command", "command": "CWPILOT_AGENT_PROVIDER=codex \"${CLAUDE_PLUGIN_ROOT}/dist/run-hook.sh\" handler_subagent_stop"}] }]
+  }
+}

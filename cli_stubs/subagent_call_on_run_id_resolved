@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# CLI stub for the "subagent_call_on_run_id_resolved" event (config.HOOK_CLI_CALLS),
+# invoked once by hooks/handler_bash.py at FIRST CONTACT -- the sub-agent's first
+# `cwpilot play show <run_id>`, where the {run_id} placeholder resolves from the
+# command itself (see hook_cli_calls.py's _fill: an unresolvable placeholder makes
+# this call a no-op). It is the sole writer of dispatched_at + agent_id on the run.
+# Called as:
+#   subagent_call_on_run_id_resolved <run_id> --fact dispatched --fact agent_id=<agent_id>
+#
+# This default stub logs the args it was invoked with to cli_stubs/cli_stubs.log,
+# then always exits 0. Replace this script to record the agent<->run binding
+# somewhere real.
+log_file="$(dirname "$0")/cli_stubs.log"
+script_rel="$(basename "$(dirname "$0")")/$(basename "$0")"
+echo "$(date +'%Y-%m-%d %H:%M:%S,%3N') \`$script_rel $*\`" >> "$log_file"
+exit 0

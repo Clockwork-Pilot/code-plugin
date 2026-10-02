@@ -1,0 +1,37 @@
+{
+  "env": {
+    "CWPILOT_PROJECT_ROOT": "{project_root}",
+    "CWPILOT_PLUGIN_VERSION": "{plugin_version}",
+    "CWPILOT_PLUGIN_DATA": "{plugin_data}",
+    "CLAUDE_PLUGIN_DATA": "{plugin_data}"
+  },
+  "hook_cli_calls": {
+    "call_on_session_start": {
+      "cmd": ["{cwpilot_bin}", "hook", "session-start", "--doc", "{project_root}/executable_graph.k.json", "--model", "{model}" ]
+    },
+    "call_on_compaction": {
+      "cmd": ["{cwpilot_bin}", "hook", "compaction", "--doc", "{project_root}/executable_graph.k.json" ]
+    },
+    "call_on_stop_hook": {
+      "timeout": 300,
+      "cmd": ["{cwpilot_bin}", "hook", "stop", "--doc", "{project_root}/executable_graph.k.json", "--last-file-change-at", "{last_file_change_at}" ]
+    },
+    "subagent_sync_call_on_bash": {
+      "cmd": ["{cwpilot_bin}", "play", "facts", "{run_id}", "--fact", "agent_live", "--doc", "{project_root}/executable_graph.k.json" ]
+    },
+    "subagent_sync_call_on_edit_write": {
+      "cmd": ["{cwpilot_bin}", "play", "facts", "{run_id}", "--fact", "agent_live", "--doc", "{project_root}/executable_graph.k.json" ]
+    },
+    "subagent_fetch_policy": {
+      "policy": {
+        "subagent_denied_commands": ["play advance", "git"]
+      }
+    },
+    "subagent_call_on_run_id_resolved": {
+      "cmd": ["{cwpilot_bin}", "play", "facts", "{run_id}", "--fact", "dispatched", "--fact", "agent_id={agent_id}", "--doc", "{project_root}/executable_graph.k.json" ]
+    },
+    "subagent_call_on_run_finished": {
+      "cmd": ["{cwpilot_bin}", "play", "facts", "{run_id}", "--fact", "agent_finished", "--fact", "files_changed+={files_changed}", "--doc", "{project_root}/executable_graph.k.json" ]
+    }
+  }
+}
