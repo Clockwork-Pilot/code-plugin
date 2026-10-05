@@ -61,26 +61,9 @@ def find_cwpilot() -> Optional[str]:
     return binary_resolver.find_cwpilot()
 
 
-def path_cwpilot_matches(resolved: str, tok: str = "cwpilot") -> bool:
-    """True when a bare `cwpilot` (looked up on $PATH) is the same file as `resolved`
-    once symlinks are followed.
-
-    The ONE test deciding whether plain `cwpilot` may be used: SessionStart's notice and
-    the PreToolUse guard both call it, so what the agent is told and what is enforced can
-    never disagree. If $PATH has no cwpilot, or a different one, it is False and the
-    agent is steered to the versioned install path instead.
-    """
-    candidate = shutil.which(tok)
-    if not candidate:
-        return False
-    return _same_file(candidate, resolved)
-
-
-def _same_file(candidate: str, resolved: str) -> bool:
-    try:
-        return os.path.realpath(candidate) == os.path.realpath(resolved)
-    except OSError:
-        return False
+# Lives in binary_resolver (which needs no project root) so the cwpilot-path handler can
+# share it; re-exported for the guard and SessionStart.
+path_cwpilot_matches = binary_resolver.path_cwpilot_matches
 
 
 def resolve_cwpilot_bin() -> str:

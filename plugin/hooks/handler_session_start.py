@@ -69,24 +69,9 @@ _STEERING_CONTEXT = (
     "installing) and do not substitute a different binary."
 )
 
-# One place for the install command, used by both the "not installed" and the
-# "checksum mismatch" notices below -- so the two can never drift onto different URLs.
-_INSTALL_COMMAND_BASE = "curl -fsSL install.clockwork-pilot.com | sh"
-
-
-def _install_command(version: Optional[str] = None) -> str:
-    """The install one-liner, pinned to ``version`` when it is known.
-
-    install.clockwork-pilot.com's script (verified against its own usage text and
-    ~/Projects/binstore/install.sh) takes VERSION as a bare positional argument,
-    e.g. ``install.sh 0.0.1`` -- the same un-prefixed shape the release tags use. Piped through curl, a positional argument
-    has to go after ``sh -s --``. No version known (the plugin version
-    is unreadable) falls back to the plain command, which installs
-    whatever the installer considers latest.
-    """
-    if not version:
-        return _INSTALL_COMMAND_BASE
-    return f"{_INSTALL_COMMAND_BASE} -s -- {version}"
+# The install command lives in binary_resolver so the cwpilot-path handler shares it.
+_INSTALL_COMMAND_BASE = binary_resolver.INSTALL_COMMAND_BASE
+_install_command = binary_resolver.install_command
 
 
 def _install_location_check(version: Optional[str]) -> str:
@@ -118,9 +103,12 @@ def _install_location_check(version: Optional[str]) -> str:
 
 
 def _hookrunner_install_command(version: str) -> str:
-    """The install.sh command for THIS plugin's hookrunner (``--hookrunner`` installs
-    only that, at exactly the plugin's own version, and leaves cwpilot alone)."""
-    return f"{_INSTALL_COMMAND_BASE} -s -- --hookrunner {shlex.quote(version)}"
+    """The one install.sh command for THIS plugin's whole cwpilot world (both binaries)."""
+    return f"{_INSTALL_COMMAND_BASE} -s -- {shlex.quote(version)}"
+
+
+def _whole_install_command(fallback_version: Optional[str]) -> str:
+    return binary_resolver.whole_install_command(fallback_version)
 
 
 def _cwpilot_version_from_path(cwpilot_path: str) -> Optional[str]:
@@ -303,7 +291,7 @@ def main():
         # (present, possibly tampered), so the call is skipped outright rather than
         # made and then reported on.
         recommended_version = _recommended_cwpilot_version(required_minor)
-        install_command = _install_command(recommended_version)
+        install_command = _whole_install_command(recommended_version)
         notices.append(
             f"cwpilot: installed version {installed_version} is not compatible with "
             f"this plugin (needs {required_minor}.x). Update with: {install_command}"
@@ -327,7 +315,7 @@ def main():
         problem = binary_resolver.signature_problem(Path(cwpilot_path))
         reason = f" Missing: {problem}." if problem else ""
         logger.warning(f"cwpilot has no valid stored signature: {cwpilot_path}.{reason}")
-        install_command = _install_command(_recommended_cwpilot_version(required_minor))
+        install_command = _whole_install_command(_recommended_cwpilot_version(required_minor))
         notices.append(
             f"cwpilot: binary does not match its stored signature, or has none. Not run."
             f"{reason} Update with: {install_command}"
@@ -371,7 +359,7 @@ def main():
             # Pin the command to this plugin's own major.minor, so whichever notice
             # below gets read, the install can never land an incompatible family.
             install_version = _recommended_cwpilot_version(required_minor)
-            install_command = _install_command(install_version)
+            install_command = _whole_install_command(install_version)
             notices.append(f"cwpilot: not installed. Install with: {install_command}")
             # Claude Code has AskUserQuestion, an interactive tool the model can call
             # mid-session; Codex (CWPILOT_AGENT_PROVIDER=codex) has no equivalent, so it
@@ -419,6 +407,15 @@ def main():
                         "~/.local/bin/cwpilot."
                     )
 
+    # The agent's Bash has no CLAUDE_PLUGIN_ROOT (the harness sets it for hook
+    # subprocesses only), so the helper's location can only reach the agent from here.
+    # It prints the one cwpilot to run, and the install command when there is none.
+    helper_notice = (
+        "Plugin setup helper: "
+        f"`{Path(binary_resolver.PLUGIN_ROOT) / 'dist' / 'cwpilot-path.sh'}` prints the "
+        "path of the cwpilot to run (see the cwpilot:getting-started skill)."
+    )
+
     binaries_notice = " ".join(notices)
 
     # The configured CLI supplies project-specific context; prepend the stable steering
@@ -426,7 +423,8 @@ def main():
     # while an already-known assignment is being executed.
     cli_context = session_start_payload.get("additional_context") or ""
     extra_context = " ".join(
-        part for part in (_STEERING_CONTEXT, agent_notice, hookrunner_agent_notice, cli_context)
+        part for part in (_STEERING_CONTEXT, helper_notice, agent_notice,
+                          hookrunner_agent_notice, cli_context)
         if part
     )
     extra_system_message = session_start_payload.get("system_message") or ""

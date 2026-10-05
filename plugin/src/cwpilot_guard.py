@@ -39,6 +39,8 @@ _SEPARATOR_RE = re.compile(SHELL_SEPARATOR_PATTERN)
 _ENV_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 # Prefixes that run the next word as a command; looked through to find what is really run.
 _WRAPPERS = {"env", "command", "exec", "nohup", "time", "sudo", "xargs"}
+_SETTERS = {"export", "alias", "declare", "local", "readonly", "typeset", "set", "eval", "read"}
+_VAR_RE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 _SHELLS = {"bash", "sh", "zsh", "dash"}
 _MAX_DEPTH = 3  # nested `bash -c "bash -c '...'"`
 
@@ -50,31 +52,66 @@ def _tokens(segment: str) -> list:
         return segment.split()
 
 
+def _substitute(word: str, assigned: dict) -> str:
+    """`word` with $VAR / ${VAR} replaced by literal values assigned earlier in the command."""
+    return _VAR_RE.sub(lambda m: assigned.get(m.group(1) or m.group(2), m.group(0)), word)
+
+
+def _command_word_text(segment: str, head: str) -> str:
+    """The text that spells the command word: the whole `$(...)` / `...` group, else `head`."""
+    start = segment.find(head)
+    if head.startswith("$("):
+        return segment[start:segment.find(")", start) + 1 or None]
+    if head.startswith("`"):
+        return segment[start:segment.find("`", start + 1) + 1 or None]
+    return head
+
+
 def _cwpilot_invocations(command: str, depth: int = 0) -> list:
     """Every token that is being run AS cwpilot in `command` (a bare or path-prefixed name)."""
     found = []
+    assigned = {}  # literal `VAR=value` set by an earlier assignment-only segment
+    tainted = False  # an earlier assignment/export/alias spelled cwpilot
     for segment in _SEPARATOR_RE.split(command):
         tokens = _tokens(segment)
         i = 0
+        prefix = []
         while i < len(tokens):
             tok = tokens[i]
             if _ENV_ASSIGNMENT_RE.match(tok) or tok in _WRAPPERS or (
                     tok.startswith("-") and i > 0 and tokens[i - 1] in _WRAPPERS):
+                if _ENV_ASSIGNMENT_RE.match(tok):
+                    prefix.append(tok)
                 i += 1
                 continue
             break
         if i >= len(tokens):
+            # Assignment-only segment: later segments see these variables.
+            for tok in prefix:
+                name, _, value = tok.partition("=")
+                value = _substitute(value, assigned)
+                if "$" in value or "`" in value:
+                    tainted = tainted or CWPILOT in segment
+                else:
+                    assigned[name] = value
             continue
         head = tokens[i]
-        expanded = os.path.expandvars(os.path.expanduser(head))
+        if CWPILOT in segment and (head in _SETTERS or (
+                prefix and ("$(" in segment or "`" in segment))):
+            # `C=$(which cwpilot) ...` / `export C=cwpilot ...`: a variable may now name it.
+            tainted = True
+        expanded = os.path.expandvars(os.path.expanduser(_substitute(head, assigned)))
         if any(c in expanded for c in "*?["):
             # A glob can spell cwpilot without the literal name (~/.local/bin/cwpil*).
             found.extend(m for m in glob.glob(expanded) if os.path.basename(m) == CWPILOT)
-        elif ("$" in expanded or "`" in expanded) and CWPILOT in command:
-            # Command substitution / an unset variable as the command, in a command that
-            # names cwpilot (`C=cwpilot; $C`, `$(which cwpilot)`): what runs is unknowable.
-            found.append(expanded)
-        elif os.path.basename(head) == CWPILOT:
+        elif "$" in expanded or "`" in expanded:
+            # Command substitution / an unset variable as the command: what runs is
+            # unknowable. Only a problem when cwpilot could be what it names -- in this
+            # segment or in an earlier assignment -- not when it is merely mentioned
+            # as an argument elsewhere in the command.
+            if tainted or CWPILOT in _command_word_text(segment, head):
+                found.append(expanded)
+        elif os.path.basename(expanded) == CWPILOT:
             found.append(expanded)
         elif os.path.basename(head) in _SHELLS and depth < _MAX_DEPTH and "-c" in tokens[i:]:
             inner = tokens[tokens.index("-c", i) + 1:]
@@ -135,7 +172,9 @@ def check_command(command: str) -> Optional[str]:
     resolved = find_cwpilot()
     if not resolved:
         return ("cwpilot is not installed where the plugin looks for it, so no cwpilot "
-                "may be run. Ask the user to install it.")
+                "may be run. Load the cwpilot:getting-started skill and follow it: run "
+                "its setup helper to locate cwpilot, and its setup step (with the "
+                "user's consent) to install it. Do not search for cwpilot yourself.")
     resolved_path = os.path.abspath(resolved)
     for tok in invoked:
         if "$" in tok or "`" in tok:
@@ -148,7 +187,8 @@ def check_command(command: str) -> Optional[str]:
                 continue
             return (f"`cwpilot` is not available on $PATH here (it is missing, or is a "
                     f"different binary). Run the plugin's verified install by its full "
-                    f"path instead: {resolved} <args>")
+                    f"path instead: {resolved} <args> (see the cwpilot:getting-started "
+                    f"skill).")
         expanded = os.path.expandvars(os.path.expanduser(tok))
         if os.path.abspath(expanded) == resolved_path:
             continue

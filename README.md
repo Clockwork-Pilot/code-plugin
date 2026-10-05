@@ -181,7 +181,7 @@ checkout works without ever doing this (see [How it's invoked](#how-its-invoked)
 ./scripts/build-linux.sh
 ```
 
-This builds `docker/Dockerfile.build-linux` (Debian 11 base — deliberately an old glibc,
+This builds `docker/Dockerfile.build-linux` (manylinux_2_28 base — deliberately an old glibc,
 since glibc is forward-compatible but not backward-compatible: building on a
 bleeding-edge base would produce a binary that refuses to run on an older distro), runs
 Nuitka inside the container against `hooks/__main__.py` (the single dispatch
@@ -235,8 +235,9 @@ the `.sig` and the key beside the binary.
 
 | Binary | Install | Where the plugin looks |
 |---|---|---|
-| cwpilot | `curl -fsSL install.clockwork-pilot.com \| sh [-s -- <version>]` | newest `v<major>.<minor>.*` of **this plugin's own** major.minor |
-| hookrunner | `curl -fsSL install.clockwork-pilot.com \| sh -s -- --hookrunner <plugin version>` | `hookrunner-v<plugin version>`, exactly |
+| both (what SessionStart recommends) | `curl -fsSL install.clockwork-pilot.com \| sh -s -- <plugin version>` | cwpilot: newest `v<major>.<minor>.*` of **this plugin's own** major.minor; hookrunner: `hookrunner-v<plugin version>`, exactly |
+| cwpilot only | `curl -fsSL install.clockwork-pilot.com \| sh -s -- cwpilot [<major.minor>]` | newest patch of that family (an exact patch is rejected) |
+| hookrunner only | `curl -fsSL install.clockwork-pilot.com \| sh -s -- hookrunner <plugin version>` | as above |
 
 hookrunner is optional: it is released under the plugin's own version, and without it the
 hooks run from Python source (see above). SessionStart tells the user the one install

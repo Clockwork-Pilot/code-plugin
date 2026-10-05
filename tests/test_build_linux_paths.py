@@ -47,7 +47,7 @@ def test_nuitka_entrypoint_and_output_are_in_distributed_plugin_tree():
 
     assert command[-1] == "hooks/__main__.py"
     assert "--output-dir=/out/linux-x86_64" in command
-    assert "--static-libpython=no" in command
+    assert "--static-libpython=yes" in command
     entrypoint = REPO_ROOT / "plugin" / command[-1]
     assert entrypoint.is_file()
 
@@ -55,23 +55,21 @@ def test_nuitka_entrypoint_and_output_are_in_distributed_plugin_tree():
 def test_nuitka_build_has_the_portable_linux_toolchain():
     """The Docker image must target x86_64 and preflight Nuitka's native tools.
 
-    The toolchain (build-essential/patchelf) lives in the published base image
-    (docker/Dockerfile.build-base), not in this Dockerfile directly. The base keeps the
-    official Python image's dated Debian snapshot so apt resolves matching package
-    versions for the existing bullseye installation.
+    The toolchain (gcc/patchelf) lives in the published base image
+    (docker/Dockerfile.build-base), not in this Dockerfile directly. The base is the
+    PyPA manylinux_2_28 image, which carries both plus the CPython 3.11 build.
     """
     dockerfile = DOCKERFILE.read_text()
     base_dockerfile = BASE_DOCKERFILE.read_text()
 
-    assert "ARG BUILD_BASE_IMAGE=ghcr.io/clockwork-pilot/code-plugin-build-base:1" in dockerfile
+    assert "ARG BUILD_BASE_IMAGE=ghcr.io/clockwork-pilot/code-plugin-build-base:3" in dockerfile
     assert "FROM --platform=linux/amd64 ${BUILD_BASE_IMAGE}" in dockerfile
     assert "/venv/bin/python3 -c 'import nuitka'" in dockerfile
 
-    assert "FROM --platform=linux/amd64 python:3.11-slim-bullseye" in base_dockerfile
-    assert "snapshot.debian.org/archive/debian/20250721T000000Z bullseye main" in base_dockerfile
-    assert "snapshot.debian.org/archive/debian-security/20250721T000000Z bullseye-security main" in base_dockerfile
-    assert "Acquire::Check-Valid-Until \"false\";" in base_dockerfile
-    assert "build-essential" in base_dockerfile
+    assert "FROM --platform=linux/amd64 quay.io/pypa/manylinux_2_28_x86_64" in base_dockerfile
+    assert "/opt/python/cp311-cp311/bin" in base_dockerfile
+    # Nuitka links manylinux's static libpython, shipped as a tarball until unpacked.
+    assert "static-libs-for-embedding-only.tar.xz" in base_dockerfile
     assert "patchelf" in base_dockerfile
 
 

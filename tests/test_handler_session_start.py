@@ -125,6 +125,7 @@ def test_cwpilot_not_installed_on_claude_code_prompts_via_ask_user_question(
     monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
     monkeypatch.setenv("CWPILOT_AGENT_PROVIDER", "claude-code")
     monkeypatch.setattr(handler_session_start, "_plugin_required_cwpilot_minor", lambda: "0.0")
+    monkeypatch.setattr(handler_session_start.binary_resolver, "plugin_version", lambda: "0.0.1")
 
     with pytest.raises(SystemExit) as stopped:
         handler_session_start.main()
@@ -132,7 +133,7 @@ def test_cwpilot_not_installed_on_claude_code_prompts_via_ask_user_question(
     assert stopped.value.code == 0
     context = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
     assert "AskUserQuestion" in context
-    assert "curl -fsSL install.clockwork-pilot.com | sh -s -- 0.0" in context
+    assert "curl -fsSL install.clockwork-pilot.com | sh -s -- 0.0.1" in context
     assert "do not ask again" in context
 
 
@@ -148,15 +149,18 @@ def test_cwpilot_install_command_is_pinned_to_the_plugins_required_minor(monkeyp
     monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
     monkeypatch.delenv("CWPILOT_AGENT_PROVIDER", raising=False)
     monkeypatch.setattr(handler_session_start, "_plugin_required_cwpilot_minor", lambda: "1.0")
+    monkeypatch.setattr(handler_session_start.binary_resolver, "plugin_version", lambda: "1.0.0")
 
     with pytest.raises(SystemExit) as stopped:
         handler_session_start.main()
 
     assert stopped.value.code == 0
     output = json.loads(capsys.readouterr().out)
-    assert "curl -fsSL install.clockwork-pilot.com | sh -s -- 1.0" in output["systemMessage"]
+    # One command installs cwpilot + hookrunner: the full plugin version, of which
+    # cwpilot's installer only consumes the major.minor.
+    assert "curl -fsSL install.clockwork-pilot.com | sh -s -- 1.0.0" in output["systemMessage"]
     assert (
-        "curl -fsSL install.clockwork-pilot.com | sh -s -- 1.0"
+        "curl -fsSL install.clockwork-pilot.com | sh -s -- 1.0.0"
         in output["hookSpecificOutput"]["additionalContext"]
     )
 
@@ -169,6 +173,7 @@ def test_cwpilot_install_command_falls_back_when_version_unknown(monkeypatch, ca
     )
     monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
     monkeypatch.delenv("CWPILOT_AGENT_PROVIDER", raising=False)
+    monkeypatch.setattr(handler_session_start.binary_resolver, "plugin_version", lambda: None)
 
     with pytest.raises(SystemExit) as stopped:
         handler_session_start.main()
@@ -626,10 +631,11 @@ def test_hookrunner_not_installed_tells_the_user_the_install_command(monkeypatch
 
     assert (
         "hookrunner: not installed, hooks run from Python source. Install with: "
-        "curl -fsSL install.clockwork-pilot.com | sh -s -- --hookrunner 1.0.4"
+        "curl -fsSL install.clockwork-pilot.com | sh -s -- 1.0.4"
     ) in output["systemMessage"]
     context = output["hookSpecificOutput"]["additionalContext"]
-    assert "--hookrunner 1.0.4" in context
+    assert "sh -s -- 1.0.4" in context
+    assert "--hookrunner" not in context
     assert "do not ask again" in context
 
 
@@ -672,7 +678,7 @@ def test_the_handler_never_installs_or_executes_anything_itself(monkeypatch, cap
 
     output = _run_main(monkeypatch, capsys)
 
-    assert "--hookrunner 1.0.4" in output["systemMessage"]
+    assert "sh -s -- 1.0.4" in output["systemMessage"]
 
 
 @pytest.mark.parametrize("provider", ["claude-code", "codex"])
@@ -696,3 +702,18 @@ def test_cwpilot_not_installed_tells_agent_to_check_install_location_before_and_
     assert "`/opt/cw/v1.0*/cwpilot`" in context
     assert "Before installing" in context
     assert "After the install command finishes" in context
+
+
+def test_context_names_the_setup_helper_by_absolute_path(monkeypatch, capsys):
+    """The agent's shell has no CLAUDE_PLUGIN_ROOT, so SessionStart is how it learns the path."""
+    monkeypatch.setattr(
+        handler_session_start, "invoke_and_get_payload", lambda event: _Payload(0)
+    )
+    monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
+
+    with pytest.raises(SystemExit):
+        handler_session_start.main()
+
+    context = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    helper = handler_session_start.binary_resolver.PLUGIN_ROOT
+    assert f"{helper}/dist/cwpilot-path.sh" in context

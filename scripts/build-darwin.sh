@@ -45,6 +45,7 @@ mkdir -p "${OUT_DIR}"
     --include-package=src \
     --include-module=hooks.handler_bash \
     --include-module=hooks.handler_compaction \
+    --include-module=hooks.handler_cwpilot_path \
     --include-module=hooks.handler_edit \
     --include-module=hooks.handler_post_change \
     --include-module=hooks.handler_session_start \

@@ -190,10 +190,31 @@ class TestSpellingsThatHideTheName:
         (other / "cwpilot").write_text("x")
         assert cwpilot_guard.check_command(f"{other}/{pattern} pull")
 
-    @pytest.mark.parametrize("cmd", ["C=cwpilot; $C pull", "$(which cwpilot) pull",
-                                     "`which cwpilot` pull"])
+    @pytest.mark.parametrize("cmd", ["$(which cwpilot) pull", "`which cwpilot` pull",
+                                     "C=$(which cwpilot); $C pull",
+                                     "export C=$(which cwpilot); $C pull"])
     def test_an_unresolvable_command_naming_cwpilot_is_refused(self, installed, cmd):
         assert "Cannot tell" in cwpilot_guard.check_command(cmd)
 
     def test_an_unresolvable_command_not_naming_cwpilot_is_allowed(self, installed):
         assert cwpilot_guard.check_command("$(git rev-parse --show-toplevel)/run.sh") is None
+
+    @pytest.mark.parametrize("cmd", [
+        "grep cwpilot notes.txt && $(pwd)/check.sh",
+        "echo cwpilot; $X",
+        "$(git rev-parse --show-toplevel)/run.sh --tool cwpilot",
+    ])
+    def test_a_mention_of_cwpilot_elsewhere_does_not_condemn_an_expansion(self, installed, cmd):
+        assert cwpilot_guard.check_command(cmd) is None
+
+    def test_a_variable_holding_the_resolved_path_is_allowed(self, installed, monkeypatch):
+        _verdict(monkeypatch, True)
+        assert cwpilot_guard.check_command(f"C={installed}; $C pull") is None
+        assert cwpilot_guard.check_command(f"C={installed} && ${{C}} pull") is None
+
+    def test_a_variable_holding_another_path_is_refused(self, installed, tmp_path):
+        reason = cwpilot_guard.check_command(f"C={tmp_path}/other/cwpilot; $C pull")
+        assert reason and str(installed) in reason
+
+    def test_a_variable_holding_bare_cwpilot_is_judged_as_bare(self, installed, no_path_cwpilot):
+        assert "not available on $PATH" in cwpilot_guard.check_command("C=cwpilot; $C pull")

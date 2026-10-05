@@ -23,6 +23,7 @@ import sys
 _HANDLERS = (
     "handler_bash",
     "handler_compaction",
+    "handler_cwpilot_path",
     "handler_edit",
     "handler_post_change",
     "handler_session_start",
@@ -37,6 +38,7 @@ _HANDLER_MODULES = {handler: f"hooks.{handler}" for handler in _HANDLERS}
 _HANDLER_EVENTS = {
     "handler_bash": "Bash",
     "handler_compaction": "Compaction",
+    "handler_cwpilot_path": "CwpilotPath",
     "handler_edit": "Edit",
     "handler_post_change": "PostChange",
     "handler_session_start": "SessionStart",

@@ -24,6 +24,8 @@ broken one):
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -63,6 +65,37 @@ def plugin_version() -> str:
         if isinstance(version, str) and version:
             return version
     return ""
+
+
+# One place for the install command, used by every "not installed" / "update" notice and
+# by the cwpilot-path handler, so they can never drift onto different URLs.
+INSTALL_COMMAND_BASE = "curl -fsSL install.clockwork-pilot.com | sh"
+
+
+def install_command(version: Optional[str] = None) -> str:
+    """The install one-liner, pinned to ``version`` when it is known.
+
+    install.sh takes VERSION as a bare positional argument (``install.sh 0.0.1``); piped
+    through curl it goes after ``sh -s --``. No version falls back to the plain command,
+    which installs whatever the installer considers latest.
+    """
+    if not version:
+        return INSTALL_COMMAND_BASE
+    return f"{INSTALL_COMMAND_BASE} -s -- {version}"
+
+
+def whole_install_command(fallback_version: Optional[str] = None) -> str:
+    """The one install.sh command for THIS plugin's whole cwpilot world.
+
+    With no component named, install.sh installs both. It is given the plugin's full
+    version: hookrunner is per-patch and takes it exactly, while cwpilot only consumes
+    the major.minor and resolves to that family's newest patch. With no readable plugin
+    version, :func:`install_command` pinned to ``fallback_version`` (e.g. major.minor).
+    """
+    version = plugin_version()
+    if version:
+        return f"{INSTALL_COMMAND_BASE} -s -- {shlex.quote(version)}"
+    return install_command(fallback_version)
 
 
 def major_minor(version: str) -> Optional[str]:
@@ -111,6 +144,28 @@ def find_hookrunner() -> Optional[str]:
         return None
     binary = versions_dir() / f"hookrunner-v{version}" / "hookrunner"
     return str(binary) if _usable(binary) else None
+
+
+def path_cwpilot_matches(resolved: str, tok: str = "cwpilot") -> bool:
+    """True when a bare `cwpilot` (looked up on $PATH) is the same file as `resolved`
+    once symlinks are followed.
+
+    The ONE test deciding whether plain `cwpilot` may be used: SessionStart's notice, the
+    PreToolUse guard and the cwpilot-path handler all call it, so what the agent is told
+    and what is enforced can never disagree. If $PATH has no cwpilot, or a different one,
+    it is False and the agent is steered to the versioned install path instead.
+    """
+    candidate = shutil.which(tok)
+    if not candidate:
+        return False
+    return _same_file(candidate, resolved)
+
+
+def _same_file(candidate: str, resolved: str) -> bool:
+    try:
+        return os.path.realpath(candidate) == os.path.realpath(resolved)
+    except OSError:
+        return False
 
 
 def signature_problem(path, signature: Optional[Path] = None) -> Optional[str]:

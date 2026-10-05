@@ -1,22 +1,21 @@
-# Keep the official Python image's bullseye package set intact. Its image metadata names
-# the 2025-07-21 Debian snapshot that matches the installed libraries; the live mirrors
-# now advertise packages whose pool files have been removed, while archive.debian.org
-# has an older main snapshot. The image deliberately keeps the glibc 2.31 floor rather
-# than bumping to bookworm (see docker/Dockerfile.build-linux for why that floor exists).
-FROM --platform=linux/amd64 python:3.11-slim-bullseye
+# manylinux_2_28 (AlmaLinux 8, glibc 2.28): the PyPA baseline for portable Linux
+# binaries. It is an older glibc floor than any distro we target, and unlike a Debian
+# release it does not depend on a mirror that stops serving packages when its LTS ends
+# (see docker/Dockerfile.build-linux for why the floor exists). It already ships gcc and
+# patchelf, plus CPython builds under /opt/python.
+FROM --platform=linux/amd64 quay.io/pypa/manylinux_2_28_x86_64
 
-# Pin all suites to the same snapshot used by the official Python image. Snapshot Release
-# files are historical, so apt's Valid-Until check must be disabled for this fixed source.
-RUN printf '%s\n' \
-      'deb http://snapshot.debian.org/archive/debian/20250721T000000Z bullseye main' \
-      'deb http://snapshot.debian.org/archive/debian-security/20250721T000000Z bullseye-security main' \
-      'deb http://snapshot.debian.org/archive/debian/20250721T000000Z bullseye-updates main' \
-      > /etc/apt/sources.list \
- && echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot
+# python:3.11 rather than the distro's own python3: the system one is too old for the
+# PEP 604 `str | None` annotations this codebase uses. Put it first on PATH so
+# `python3 -m venv` in the build image picks it up.
+ENV PATH=/opt/python/cp311-cp311/bin:${PATH}
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential \
-      ccache \
-      git \
-      patchelf \
-    && rm -rf /var/lib/apt/lists/*
+# manylinux's CPython has no shared libpython; Nuitka links the static one, which the
+# image ships as a tarball "for embedding only" until it is unpacked.
+RUN cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz
+
+RUN dnf install -y epel-release \
+ && dnf install -y ccache git \
+ && dnf clean all \
+ && command -v gcc \
+ && command -v patchelf
